@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: auto-gpt
+  labels:
+    app: auto-gpt
+spec:
+  containers:
+  - name: auto-gpt
+    image: auto-gpt-test:0.1
+    command: ['sh', '-c', 'cp /tmp/.env /app/ && poetry run autogpt serve']
+    ports:
+    - containerPort: 8000
+    volumeMounts:
+    - name: auto-gpt-env
+      mountPath: "/tmp/.env"
+      subPath: ".env"
+  volumes:
+  - name: auto-gpt-env
+    configMap:
+      name: auto-gpt-env
