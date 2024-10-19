@@ -5,10 +5,12 @@ metadata:
   labels:
     app: auto-gpt
 spec:
+  serviceAccountName: my-service-account
   containers:
   - name: auto-gpt
-    image: auto-gpt-test:0.1
-    command: ['sh', '-c', 'cp /tmp/.env /app/ && poetry run autogpt serve']
+    image: auto-gpt-test:0.2
+    command: ['sleep', '3000']
+    # command: ['sh', '-c', 'cp /tmp/.env /app/ && poetry run autogpt serve']
     ports:
     - containerPort: 8000
     volumeMounts:

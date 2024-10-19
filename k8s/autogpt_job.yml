@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-job
+spec:
+  template:
+    spec:
+      serviceAccountName: my-service-account  # Reference the ServiceAccount
+      containers:
+      - name: example
+        image: localhost:5001/auto-gpt-job:0.1
+        # command: ['sh', '-c', 'sleep 3000']
+        command: ["python", 'run_job.py', "--agent", "test-agent", '--ns', "default", '--pvc', 'test-agent-5', '--pod', 'my-pod-4']
+      restartPolicy: Never
+  backoffLimit: 4

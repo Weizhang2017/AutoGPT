@@ -1,4 +1,7 @@
 ## Original ignores
+k8s/env_config.yml
+autogpts/autogpt/
+forge/
 .github_access_token
 autogpt/keys.py
 autogpt/*.json
