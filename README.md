@@ -1,4 +1,4 @@
-#### Create docker image
+#### Build docker image
 
 ```shell
 cd autogpts/autogpt/
