@@ -62,7 +62,7 @@ selenium = "^4.11.2"
 sentry-sdk = "^1.40.4"
 spacy = "^3.0.0"
 tenacity = "^8.2.2"
-tiktoken = "^0.5.0"
+tiktoken = "^0.8.0"
 webdriver-manager = "*"
 
 # OpenAI and Generic plugins import

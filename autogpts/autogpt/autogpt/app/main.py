@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Optional
 from colorama import Fore, Style
 from forge.sdk.db import AgentDB
 
+from autogpt.default_options import Default_options
+
 if TYPE_CHECKING:
     from autogpt.agents.agent import Agent
 
@@ -102,7 +104,7 @@ async def run_auto_gpt(
 
     # TODO: fill in llm values here
     assert_config_has_openai_api_key(config)
-
+    # import pdb;pdb.set_trace()
     apply_overrides_to_config(
         config=config,
         continuous=continuous,
@@ -121,7 +123,7 @@ async def run_auto_gpt(
         allow_downloads=allow_downloads,
         skip_news=skip_news,
     )
-
+    # import pdb;pdb.set_trace()
     llm_provider = _configure_openai_provider(config)
 
     logger = logging.getLogger(__name__)
@@ -271,7 +273,7 @@ async def run_auto_gpt(
     # Set up a new Agent #
     ######################
     if not agent:
-        task = ""
+        task = "" #or Default_options.default_task
         while task.strip() == "":
             task = clean_input(
                 config,
@@ -316,7 +318,7 @@ async def run_auto_gpt(
             )
         else:
             logger.info("AI config overrides specified through CLI; skipping revision")
-
+        import pdb;pdb.set_trace()
         agent = create_agent(
             agent_id=agent_manager.generate_id(ai_profile.ai_name),
             task=task,
@@ -334,7 +336,7 @@ async def run_auto_gpt(
                 f"inside its workspace at:{Fore.RESET} {agent.workspace.root}",
                 extra={"preserve_color": True},
             )
-
+        import pdb;pdb.set_trace()
     #################
     # Run the Agent #
     #################
@@ -345,11 +347,14 @@ async def run_auto_gpt(
         logger.info(f"Saving state of {agent_id}...")
 
         # Allow user to Save As other ID
-        save_as_id = clean_input(
-            config,
-            f"Press enter to save as '{agent_id}',"
-            " or enter a different ID to save to:",
-        )
+        if not agent_id:
+            save_as_id = clean_input(
+                config,
+                f"Press enter to save as '{agent_id}',"
+                " or enter a different ID to save to:",
+            )
+        else:
+            save_as_id = agent_id
         # TODO: allow many-to-one relations of agents and workspaces
         await agent.save_state(save_as_id if not save_as_id.isspace() else None)
 
@@ -536,26 +541,27 @@ async def run_interaction_loop(
         ########
         handle_stop_signal()
         # Have the agent determine the next action to take.
-        with spinner:
-            try:
-                (
-                    command_name,
-                    command_args,
-                    assistant_reply_dict,
-                ) = await agent.propose_action()
-            except InvalidAgentResponseError as e:
-                logger.warning(f"The agent's thoughts could not be parsed: {e}")
-                consecutive_failures += 1
-                if consecutive_failures >= 3:
-                    logger.error(
-                        "The agent failed to output valid thoughts"
-                        f" {consecutive_failures} times in a row. Terminating..."
-                    )
-                    raise AgentTerminated(
-                        "The agent failed to output valid thoughts"
-                        f" {consecutive_failures} times in a row."
-                    )
-                continue
+        # with spinner:
+        try:
+            (
+                command_name,
+                command_args,
+                assistant_reply_dict,
+            ) = await agent.propose_action()
+            import pdb;pdb.set_trace()
+        except InvalidAgentResponseError as e:
+            logger.warning(f"The agent's thoughts could not be parsed: {e}")
+            consecutive_failures += 1
+            if consecutive_failures >= 3:
+                logger.error(
+                    "The agent failed to output valid thoughts"
+                    f" {consecutive_failures} times in a row. Terminating..."
+                )
+                raise AgentTerminated(
+                    "The agent failed to output valid thoughts"
+                    f" {consecutive_failures} times in a row."
+                )
+            continue
 
         consecutive_failures = 0
 
@@ -570,7 +576,7 @@ async def run_interaction_loop(
             assistant_reply_dict,
             speak_mode=legacy_config.tts_config.speak_mode,
         )
-
+        import pdb;pdb.set_trace()
         ##################
         # Get user input #
         ##################
@@ -715,17 +721,20 @@ async def get_user_feedback(
     )
 
     user_feedback = None
-    user_input = ""
+    user_input = "" #or Default_options.default
     new_cycles_remaining = None
 
     while user_feedback is None:
         # Get input from user
-        if config.chat_messages_enabled:
-            console_input = clean_input(config, "Waiting for your response...")
+        if user_input:
+            console_input = user_input
         else:
-            console_input = clean_input(
-                config, Fore.MAGENTA + "Input:" + Style.RESET_ALL
-            )
+            if config.chat_messages_enabled:
+                console_input = clean_input(config, "Waiting for your response...")
+            else:
+                console_input = clean_input(
+                    config, Fore.MAGENTA + "Input:" + Style.RESET_ALL
+                )
 
         # Parse user input
         if console_input.lower().strip() == config.authorise_key:

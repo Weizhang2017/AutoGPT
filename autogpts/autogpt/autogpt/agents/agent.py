@@ -315,6 +315,7 @@ async def execute_command(
         str: The result of the command
     """
     # Execute a native command with the same name or alias, if it exists
+    import pdb;pdb.set_trace()
     if command := agent.command_registry.get_command(command_name):
         try:
             result = command(**arguments, agent=agent)

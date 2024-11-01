@@ -35,7 +35,7 @@ AZURE_CONFIG_FILE = Path("azure.yaml")
 PLUGINS_CONFIG_FILE = Path("plugins_config.yaml")
 PROMPT_SETTINGS_FILE = Path("prompt_settings.yaml")
 
-GPT_4_MODEL = "gpt-4"
+GPT_4_MODEL = "gpt-4o"
 GPT_3_MODEL = "gpt-3.5-turbo"
 
 
@@ -288,7 +288,7 @@ class ConfigBuilder(Configurable[Config]):
 
 def assert_config_has_openai_api_key(config: Config) -> None:
     """Check if the OpenAI API key is set in config.py or as an environment variable."""
-    key_pattern = r"^sk-\w{48}"
+    key_pattern = r"^sk-.{92}" #48
     openai_api_key = (
         config.openai_credentials.api_key.get_secret_value()
         if config.openai_credentials
@@ -325,6 +325,7 @@ def assert_config_has_openai_api_key(config: Config) -> None:
             exit(1)
     # If key is set, but it looks invalid
     elif not re.search(key_pattern, openai_api_key):
+        import pdb;pdb.set_trace()
         logger.error(
             "Invalid OpenAI API key! "
             "Please set your OpenAI API key in .env or as an environment variable."

@@ -30,7 +30,7 @@ RUN poetry config installer.max-workers 10
 
 WORKDIR /app
 COPY pyproject.toml poetry.lock ./
-
+COPY env ./.env
 # Set the entrypoint
 ENTRYPOINT ["poetry", "run", "autogpt"]
 CMD []
@@ -40,6 +40,7 @@ FROM autogpt-base as autogpt-dev
 RUN poetry install --no-cache --no-root \
     && rm -rf $(poetry env info --path)/src
 ONBUILD COPY . ./
+#ONBUILD COPY .env ./
 
 # release build -> include bare minimum
 FROM autogpt-base as autogpt-release
@@ -51,6 +52,7 @@ ONBUILD COPY plugins/ ./plugins
 ONBUILD COPY frontend/ ./frontend
 ONBUILD COPY prompt_settings.yaml ./prompt_settings.yaml
 ONBUILD COPY README.md ./README.md
+ONBUILD COPY .env ./.env
 ONBUILD RUN mkdir ./data
 
 FROM autogpt-${BUILD_TYPE} AS autogpt

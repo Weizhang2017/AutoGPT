@@ -22,7 +22,7 @@ COMMAND_CATEGORY = "file_operations"
 COMMAND_CATEGORY_TITLE = "File Operations"
 
 
-from .file_context import open_file, open_folder  # NOQA
+from .file_context import open_file, open_folder, create_folder  # NOQA
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +216,42 @@ async def write_to_file(filename: str | Path, contents: str, agent: Agent) -> st
     await agent.workspace.write_file(filename, contents)
     await log_operation("write", filename, agent, checksum)
     return f"File {filename} has been written successfully."
+
+
+# @command(
+#     "write_all_files",
+#     "Write all files that are needed to complete the task, creating it if necessary. If the file exists, it is overwritten.",
+#     {
+#         "filename": JSONSchema(
+#             type=JSONSchema.Type.DICT,
+#             description="Dictionary key is the filename and dictionary value is the respective file content",
+#             required=True,
+#         ),
+#     },
+#     aliases=["create_all_files"],
+# )
+# async def write_all_files(file_dict: string, agent: Agent) -> str:
+#     """Write all files that are needed to complete the task
+
+#     Args:
+#         file_dict (Path): Dictionary key is the filename and dictionary value is the respective file content e.g. {filename: content}
+
+#     Returns:
+#         str: A message indicating success or failure
+#     """
+#     import json
+#     file_dict = json.loads(file_dict)
+#     for filename, content in file_dict.items():
+#         checksum = text_checksum(contents)
+#         if is_duplicate_operation("write", Path(filename), agent, checksum):
+#             raise DuplicateOperationError(f"File {filename} has already been updated.")
+
+#         if directory := os.path.dirname(filename):
+#             agent.workspace.make_dir(directory)
+#         await agent.workspace.write_file(filename, contents)
+#         await log_operation("write", filename, agent, checksum)
+#     msg = ','.join(list(filename.keys()))
+#     return f"Files {msg} have been written successfully."
 
 
 @command(

@@ -6,4 +6,6 @@ COMMAND_CATEGORIES = [
     "autogpt.commands.web_selenium",
     "autogpt.commands.system",
     "autogpt.commands.image_gen",
+    "autogpt.commands.docker_image",
+    "autogpt.commands.k8s",
 ]

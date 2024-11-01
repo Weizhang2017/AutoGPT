@@ -193,6 +193,7 @@ class CommandRegistry:
                 category.commands.append(command)
 
     def register_module_category(self, module: ModuleType) -> CommandCategory:
+        import pdb;pdb.set_trace()
         if not (category_name := getattr(module, "COMMAND_CATEGORY", None)):
             raise ValueError(f"Cannot import invalid command module {module.__name__}")
 

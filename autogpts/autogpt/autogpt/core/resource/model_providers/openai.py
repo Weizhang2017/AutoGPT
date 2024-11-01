@@ -76,11 +76,11 @@ class OpenAIModelName(str, enum.Enum):
     GPT4_v4 = "gpt-4-0125-preview"
     GPT4_ROLLING = "gpt-4"
     GPT4_ROLLING_32k = "gpt-4-32k"
-    GPT4_TURBO = "gpt-4-turbo-preview"
+    GPT4_TURBO = "gpt-4-turbo-2024-04-09"
     GPT4_VISION = "gpt-4-vision-preview"
     GPT4 = GPT4_ROLLING
     GPT4_32k = GPT4_ROLLING_32k
-
+    GPT4_O = "gpt-4o"
 
 OPEN_AI_EMBEDDING_MODELS = {
     info.name: info
@@ -179,6 +179,15 @@ OPEN_AI_CHAT_MODELS = {
             max_tokens=128000,
             has_function_call_api=True,
         ),
+        ChatModelInfo(
+            name=OpenAIModelName.GPT4_O,
+            service=ModelProviderService.CHAT,
+            provider_name=ModelProviderName.OPENAI,
+            prompt_token_cost=5 / 1_000_000,
+            completion_token_cost=15 / 1_000_000,
+            max_tokens=128_000,
+            has_function_call_api=True,
+        ),
     ]
 }
 # Copy entries for models with equivalent specs
@@ -197,6 +206,7 @@ chat_model_mapping = {
         OpenAIModelName.GPT4_v4,
         OpenAIModelName.GPT4_VISION,
     ],
+    OpenAIModelName.GPT4_O: [OpenAIModelName.GPT4_O],
 }
 for base, copies in chat_model_mapping.items():
     for copy in copies:
@@ -429,7 +439,7 @@ class OpenAIProvider(
                 **completion_kwargs,
             )
             total_cost += _cost
-
+            import pdb;pdb.set_trace()
             # If parsing the response fails, append the error to the prompt, and let the
             # LLM fix its mistake(s).
             attempts += 1
@@ -623,10 +633,41 @@ class OpenAIProvider(
         async def _create_chat_completion_with_retry(
             messages: list[ChatCompletionMessageParam], **kwargs
         ) -> ChatCompletion:
-            return await self._client.chat.completions.create(
+            
+            def _check_pickle(file):
+                import os
+                if os.path.isfile(file):
+                    return True
+                else:
+                    return False
+            def _pickle(file, obj=None, load=False):
+                import pickle
+                if load:
+                    f = open(file, 'wb')
+                    pickle.dump(obj, f)
+                    f.close()
+                else:
+                    f = open(file, 'rb')
+                    obj = pickle.load(f)
+                    f.close()
+                    return obj
+            file = f'gpt_resp_{len(messages[0].get("content"))}.obj'
+            import pdb;pdb.set_trace()
+            if False: #_check_pickle(file):
+                response = _pickle(file)
+            else:
+                print('query message:')
+                print(messages)
+                print('='*128)
+                response =  await self._client.chat.completions.create(
                 messages=messages,  # type: ignore
                 **kwargs,
-            )
+                )
+                print('response message:')
+                print(response)
+                print('='*128)
+                _pickle(file, response, load=True)
+            return response
 
         completion = await _create_chat_completion_with_retry(
             messages, model=model, **kwargs

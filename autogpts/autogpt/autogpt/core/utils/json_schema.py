@@ -14,6 +14,7 @@ class JSONSchema(BaseModel):
         NUMBER = "number"
         INTEGER = "integer"
         BOOLEAN = "boolean"
+        # DICT = 'dictionary'
 
     # TODO: add docstrings
     description: Optional[str] = None
@@ -136,6 +137,8 @@ class JSONSchema(BaseModel):
             return self.to_typescript_object_interface()
         elif self.enum:
             return " | ".join(repr(v) for v in self.enum)
+        # elif self.type == JSONSchema.Type.DICT:
+        #     return 'string'
         else:
             raise NotImplementedError(
                 f"JSONSchema.typescript_type does not support Type.{self.type.name} yet"

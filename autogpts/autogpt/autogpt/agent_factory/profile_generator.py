@@ -233,7 +233,7 @@ async def generate_agent_profile_for_task(
     )
 
     prompt = agent_profile_generator.build_prompt(task)
-
+    import pdb;pdb.set_trace()
     # Call LLM with the string as user input
     output = await llm_provider.create_chat_completion(
         prompt.messages,
@@ -241,7 +241,7 @@ async def generate_agent_profile_for_task(
         functions=prompt.functions,
         completion_parser=agent_profile_generator.parse_response_content,
     )
-
+    import pdb;pdb.set_trace()
     # Debug LLM Output
     logger.debug(f"AI Config Generator Raw Output: {output.response}")
 

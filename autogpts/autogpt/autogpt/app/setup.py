@@ -5,6 +5,7 @@ from typing import Optional
 from autogpt.app.utils import clean_input
 from autogpt.config import AIDirectives, AIProfile, Config
 from autogpt.logs.helpers import print_attribute
+from autogpt.default_options import Default_options
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +68,8 @@ async def interactively_revise_ai_settings(
             directives=directives,
             logger=logger,
         )
-
-        if (
+        # import pdb;pdb.set_trace()
+        if Default_options.default == 'y' or (
             clean_input(app_config, "Continue with these settings? [Y/n]").lower()
             or app_config.authorise_key
         ) == app_config.authorise_key:

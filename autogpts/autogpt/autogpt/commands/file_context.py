@@ -129,3 +129,49 @@ def open_folder(path: Path, agent: Agent) -> tuple[str, FolderContextItem]:
         raise DuplicateOperationError(f"The folder {path} is already open")
 
     return f"Folder {path} has been opened and added to the context ✅", folder
+
+@command(
+    "create_folder",
+    "Create a folder for application",
+    {
+        "path": JSONSchema(
+            type=JSONSchema.Type.STRING,
+            description="The path of the folder to be created",
+            required=True,
+        )
+    },
+    available=agent_implements_context,
+)
+@sanitize_path_arg("path")
+def create_folder(path: Path, agent: Agent) -> tuple[str, FolderContextItem]:
+    """Open a folder and return a context item
+
+    Args:
+        path (Path): The path of the folder to be created
+
+    Returns:
+        str: A status message indicating what happened
+        FolderContextItem: A ContextItem representing the opened folder
+    """
+    # Try to make the path relative
+    relative_path = None
+    with contextlib.suppress(ValueError):
+        relative_path = path.relative_to(agent.workspace.root)
+
+    assert (agent_context := get_agent_context(agent)) is not None
+    if not path.exists():
+        agent.workspace.make_dir(relative_path)
+    elif not path.is_dir():
+        raise CommandExecutionError(f"{path} exists but is not a folder")
+
+    path = relative_path or path
+
+    folder = FolderContextItem(
+        path_in_workspace=path,
+        workspace_path=agent.workspace.root,
+    )
+    if folder in agent_context:
+        raise DuplicateOperationError(f"The folder {path} is already open")
+
+    return f"Folder {path} has been created and added to the context ✅", folder
+
