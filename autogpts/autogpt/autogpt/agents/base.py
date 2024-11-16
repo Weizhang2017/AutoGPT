@@ -213,6 +213,21 @@ class BaseAgent(Configurable[BaseAgentSettings], ABC):
         prompt = self.on_before_think(prompt, scratchpad=self._prompt_scratchpad)
 
         logger.debug(f"Executing prompt:\n{dump_prompt(prompt)}")
+        # response = await self.llm_provider.create_chat_completion(
+        #     prompt.messages,
+        #     functions=get_openai_command_specs(
+        #         self.command_registry.list_available_commands(self)
+        #     )
+        #     + list(self._prompt_scratchpad.commands.values())
+        #     if self.config.use_functions_api
+        #     else [],
+        #     model_name=self.llm.name,
+        #     completion_parser=lambda r: self.parse_and_process_response(
+        #         r,
+        #         prompt,
+        #         scratchpad=self._prompt_scratchpad,
+        #     ),
+        # )
         response = await self.llm_provider.create_chat_completion(
             prompt.messages,
             functions=get_openai_command_specs(
@@ -228,6 +243,17 @@ class BaseAgent(Configurable[BaseAgentSettings], ABC):
                 scratchpad=self._prompt_scratchpad,
             ),
         )
+        if type(response) == list:
+            on_response_list = []
+            for r in response:
+                on_response_list.append(
+                    self.on_response(
+                    llm_response=r,
+                    prompt=prompt,
+                    scratchpad=self._prompt_scratchpad,
+                    )
+                )
+            return on_response_list
         self.config.cycle_count += 1
 
         return self.on_response(

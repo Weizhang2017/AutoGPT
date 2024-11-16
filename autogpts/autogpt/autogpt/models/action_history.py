@@ -124,6 +124,7 @@ class EpisodicActionHistory(BaseModel):
 
     episodes: list[Episode] = Field(default_factory=list)
     cursor: int = 0
+    action_cursor: int = 0
     _lock = asyncio.Lock()
 
     @property
@@ -145,26 +146,33 @@ class EpisodicActionHistory(BaseModel):
         return len(self.episodes) > 0
 
     def register_action(self, action: Action) -> None:
+        import pdb;pdb.set_trace()
         if not self.current_episode:
             self.episodes.append(Episode(action=action, result=None))
             assert self.current_episode
         elif self.current_episode.action:
-            raise ValueError("Action for current cycle already set")
+            self.episodes.append(Episode(action=action, result=None))
+            self.action_cursor += 1
+            # raise ValueError("Action for current cycle already set")
 
     def register_result(self, result: ActionResult) -> None:
         if not self.current_episode:
             raise RuntimeError("Cannot register result for cycle without action")
         elif self.current_episode.result:
             raise ValueError("Result for current cycle already set")
+        if self.cursor < len(self.episodes):
+            self.current_episode.result = result
+            self.cursor += 1
 
-        self.current_episode.result = result
-        self.cursor = len(self.episodes)
+        # self.current_episode.result = result
+        # self.cursor = len(self.episodes)
 
     def matches_last_command(
         self, command_name: CommandName, arguments: CommandArgs
     ) -> bool:
         """Check if the last command matches the given name and arguments."""
         if len(self.episodes) > 0:
+            import pdb;pdb.set_trace()
             last_command = self.episodes[-1].action
             return last_command.name == command_name and last_command.args == arguments
         return False
@@ -202,7 +210,7 @@ class EpisodicActionHistory(BaseModel):
         )
         async with self._lock:
             # Gather all episodes without a summary
-            episodes_to_summarize = [ep for ep in self.episodes if ep.summary is None]
+            episodes_to_summarize = [ep for ep in self.episodes if ep.summary is None and ep.result]
 
             # Parallelize summarization calls
             summarize_coroutines = [

@@ -439,7 +439,7 @@ class OpenAIProvider(
                 **completion_kwargs,
             )
             total_cost += _cost
-            import pdb;pdb.set_trace()
+            
             # If parsing the response fails, append the error to the prompt, and let the
             # LLM fix its mistake(s).
             attempts += 1
@@ -460,7 +460,70 @@ class OpenAIProvider(
             parsed_result: _T = None  # type: ignore
             if not parse_errors:
                 try:
-                    parsed_result = completion_parser(assistant_msg)
+                    import pdb;pdb.set_trace()
+                    if assistant_msg.content and 'command_list' in assistant_msg.content:
+                        chat_model_response_list = []
+                        for replaced_assistant_msg in self.replace_command_list(assistant_msg.content):
+                            try:
+                                import pdb;pdb.set_trace()
+                                assistant_msg.content = replaced_assistant_msg
+                                parsed_result = completion_parser(assistant_msg)
+                            except Exception as e:
+                                parse_errors.append(e)                            
+                            if not parse_errors:
+                                if attempts > 1:
+                                    self._logger.debug(
+                                        f"Total cost for {attempts} attempts: ${round(total_cost, 5)}"
+                                    )
+
+                                chat_model_response_list.append(
+                                    ChatModelResponse(
+                                    response=AssistantChatMessage(
+                                        content=_assistant_msg.content,  # bug
+                                        tool_calls=tool_calls or None,
+                                    ),
+                                    parsed_result=parsed_result,
+                                    model_info=OPEN_AI_CHAT_MODELS[model_name],
+                                    prompt_tokens_used=t_input,
+                                    completion_tokens_used=t_output,
+                                    )
+                                )
+
+                            else:
+                                self._logger.debug(
+                                    f"Parsing failed on response: '''{_assistant_msg}'''"
+                                )
+                                self._logger.warning(
+                                    f"Parsing attempt #{attempts} failed: {parse_errors}"
+                                )
+                                for e in parse_errors:
+                                    sentry_sdk.capture_exception(
+                                        error=e,
+                                        extras={"assistant_msg": _assistant_msg, "i_attempt": attempts},
+                                    )
+
+                                if attempts < self._configuration.fix_failed_parse_tries:
+                                    openai_messages.append(_assistant_msg.dict(exclude_none=True))
+                                    openai_messages.append(
+                                        {
+                                            "role": "system",
+                                            "content": (
+                                                "ERROR PARSING YOUR RESPONSE:\n\n"
+                                                + "\n\n".join(
+                                                    f"{e.__class__.__name__}: {e}" for e in parse_errors
+                                                )
+                                            ),
+                                        }
+                                    )
+                                    continue
+                                else:
+                                    raise parse_errors[0]
+                        return chat_model_response_list
+
+
+                    else:
+                        import pdb;pdb.set_trace()
+                        parsed_result = completion_parser(assistant_msg)
                 except Exception as e:
                     parse_errors.append(e)
 
@@ -510,6 +573,30 @@ class OpenAIProvider(
                     continue
                 else:
                     raise parse_errors[0]
+
+    def replace_command_list(self, assistant_msg_content):
+        import json, re
+        pattern = r"```(?:json|JSON)*([\s\S]*?)```"
+        match = re.search(pattern, assistant_msg_content)
+
+        if match:
+            json_str = match.group(1).strip()
+        else:
+            json_str = assistant_msg_content
+        try:
+            content_json = json.loads(json_str)
+        except Exception as e:
+            raise Exception(f'parsing json_str error: {str(e)}')
+        command_list = content_json.pop('command_list')
+        if len(command_list) == 0:
+            content_json['command'] = {'name': 'finish', 'args': {'reason': 'task done'}}
+            content = f'```json{ content_json }```'
+            yield content
+        for command in command_list:
+            content_json['command'] = command['command']
+            content = f'```json{ content_json }```'
+            yield content
+
 
     async def create_embedding(
         self,

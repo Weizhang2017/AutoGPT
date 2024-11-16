@@ -50,7 +50,7 @@ class OneShotAgentPromptConfiguration(SystemConfiguration):
     )
 
     DEFAULT_CHOOSE_ACTION_INSTRUCTION: str = (
-        "Determine exactly one command to use next based on the given goals "
+        "Determine one command or more independent commands to use next based on the given goals "
         "and the progress you have made so far, "
         "and respond using the JSON schema specified previously:"
     )
@@ -98,19 +98,44 @@ class OneShotAgentPromptConfiguration(SystemConfiguration):
                     ),
                 },
             ),
-            "command": JSONSchema(
-                type=JSONSchema.Type.OBJECT,
+            # "command": JSONSchema(
+            #     type=JSONSchema.Type.OBJECT,
+            #     required=True,
+            #     properties={
+            #         "name": JSONSchema(
+            #             type=JSONSchema.Type.STRING,
+            #             required=True,
+            #         ),
+            #         "args": JSONSchema(
+            #             type=JSONSchema.Type.OBJECT,
+            #             required=True,
+            #         ),
+            #     },
+            # ),
+            "command_list": JSONSchema(
+                type=JSONSchema.Type.ARRAY,
+                description="a list of commands that can be execute independently",
                 required=True,
-                properties={
-                    "name": JSONSchema(
-                        type=JSONSchema.Type.STRING,
-                        required=True,
-                    ),
-                    "args": JSONSchema(
+                items=JSONSchema(
                         type=JSONSchema.Type.OBJECT,
                         required=True,
+                        properties={
+                            "command": JSONSchema(
+                                type=JSONSchema.Type.OBJECT,
+                                required=True,
+                                properties={
+                                    "name": JSONSchema(
+                                        type=JSONSchema.Type.STRING,
+                                        required=True,
+                                    ),
+                                    "args": JSONSchema(
+                                        type=JSONSchema.Type.OBJECT,
+                                        required=True,
+                                    ),
+                                },
+                            ),
+                        },
                     ),
-                },
             ),
         },
     )
@@ -391,19 +416,25 @@ class OneShotAgentPromptStrategy(PromptStrategy):
             "Validating object extracted from LLM response:\n"
             f"{json.dumps(assistant_reply_dict, indent=4)}"
         )
+        # import pdb;pdb.set_trace()
 
-        _, errors = self.response_schema.validate_object(assistant_reply_dict)
-        if errors:
-            raise InvalidAgentResponseError(
-                "Validation of response failed:\n  "
-                + ";\n  ".join([str(e) for e in errors])
-            )
+        ## bug
+        # _, errors = self.response_schema.validate_object(assistant_reply_dict)
+        # if errors:
+        #     raise InvalidAgentResponseError(
+        #         "Validation of response failed:\n  "
+        #         + ";\n  ".join([str(e) for e in errors])
+        #     )
 
         # Get command name and arguments
         command_name, arguments = extract_command(
             assistant_reply_dict, response, self.config.use_functions_api
         )
         return command_name, arguments, assistant_reply_dict
+        # for command_name, arguments in extract_command_list(
+        #     assistant_reply_dict, response, self.config.use_functions_api
+        # ):
+        #     yield command_name, arguments, assistant_reply_dict
 
 
 #############
@@ -446,7 +477,7 @@ def extract_command(
 
         if "command" not in assistant_reply_json:
             raise InvalidAgentResponseError("Missing 'command' object in JSON")
-
+        import pdb;pdb.set_trace()
         command = assistant_reply_json["command"]
         if not isinstance(command, dict):
             raise InvalidAgentResponseError("'command' object is not a dictionary")
@@ -466,3 +497,15 @@ def extract_command(
 
     except Exception as e:
         raise InvalidAgentResponseError(str(e))
+
+
+# def extract_command_list(
+#     assistant_reply_json: dict,
+#     assistant_reply: AssistantChatMessage,
+#     use_openai_functions_api: bool,
+# ):
+#     for command_json in assistant_reply_json['command_list']:
+#         command_name, arguments = extract_command(
+#             command_json, assistant_reply, use_openai_functions_api
+#         )
+#         yield command_name, arguments

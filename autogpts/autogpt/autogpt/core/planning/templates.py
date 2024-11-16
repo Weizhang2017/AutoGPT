@@ -51,7 +51,10 @@ PLAN_PROMPT_RESPONSE_DICT = {
         "criticism": "constructive self-criticism",
         "speak": "thoughts summary to say to user",
     },
-    "command": {"name": "command name", "args": {"arg name": "value"}},
+    "command": [
+        {"name": "command name", "args": {"arg name": "value"}},
+        {"name": "command name", "args": {"arg name": "value"}},
+        ]
 }
 
 PLAN_PROMPT_RESPONSE_FORMAT = (

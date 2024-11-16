@@ -543,11 +543,12 @@ async def run_interaction_loop(
         # Have the agent determine the next action to take.
         # with spinner:
         try:
-            (
-                command_name,
-                command_args,
-                assistant_reply_dict,
-            ) = await agent.propose_action()
+            # (
+            #     command_name,
+            #     command_args,
+            #     assistant_reply_dict,
+            # ) = await agent.propose_action()
+            command_list = await agent.propose_action()
             import pdb;pdb.set_trace()
         except InvalidAgentResponseError as e:
             logger.warning(f"The agent's thoughts could not be parsed: {e}")
@@ -563,6 +564,104 @@ async def run_interaction_loop(
                 )
             continue
 
+        # if len(command_list) == 0:
+        #     command_list.append([None, None, None])
+
+        for command_name, command_args, assistant_reply_dict in command_list:
+            consecutive_failures = 0
+
+            ###############
+            # Update User #
+            ###############
+            # Print the assistant's thoughts and the next command to the user.
+            update_user(
+                ai_profile,
+                command_name,
+                command_args,
+                assistant_reply_dict,
+                speak_mode=legacy_config.tts_config.speak_mode,
+            )
+            import pdb;pdb.set_trace()
+            ##################
+            # Get user input #
+            ##################
+            handle_stop_signal()
+            if cycles_remaining == 1:  # Last cycle
+                user_feedback, user_input, new_cycles_remaining = await get_user_feedback(
+                    legacy_config,
+                    ai_profile,
+                )
+
+                if user_feedback == UserFeedback.AUTHORIZE:
+                    if new_cycles_remaining is not None:
+                        # Case 1: User is altering the cycle budget.
+                        if cycle_budget > 1:
+                            cycle_budget = new_cycles_remaining + 1
+                        # Case 2: User is running iteratively and
+                        #   has initiated a one-time continuous cycle
+                        cycles_remaining = new_cycles_remaining + 1
+                    else:
+                        # Case 1: Continuous iteration was interrupted -> resume
+                        if cycle_budget > 1:
+                            logger.info(
+                                f"The cycle budget is {cycle_budget}.",
+                                extra={
+                                    "title": "RESUMING CONTINUOUS EXECUTION",
+                                    "title_color": Fore.MAGENTA,
+                                },
+                            )
+                        # Case 2: The agent used up its cycle budget -> reset
+                        cycles_remaining = cycle_budget + 1
+                    logger.info(
+                        "-=-=-=-=-=-=-= COMMAND AUTHORISED BY USER -=-=-=-=-=-=-=",
+                        extra={"color": Fore.MAGENTA},
+                    )
+                elif user_feedback == UserFeedback.EXIT:
+                    logger.warning("Exiting...")
+                    exit()
+                else:  # user_feedback == UserFeedback.TEXT
+                    command_name = "human_feedback"
+            else:
+                user_input = ""
+                # First log new-line so user can differentiate sections better in console
+                print()
+                if cycles_remaining != math.inf:
+                    # Print authorized commands left value
+                    print_attribute(
+                        "AUTHORIZED_COMMANDS_LEFT", cycles_remaining, title_color=Fore.CYAN
+                    )
+
+            ###################
+            # Execute Command #
+            ###################
+            # Decrement the cycle counter first to reduce the likelihood of a SIGINT
+            # happening during command execution, setting the cycles remaining to 1,
+            # and then having the decrement set it to 0, exiting the application.
+            if command_name != "human_feedback":
+                cycles_remaining -= 1
+
+            if not command_name:
+                continue
+
+            handle_stop_signal()
+
+            if command_name:
+                result = await agent.execute(command_name, command_args, user_input)
+
+                if result.status == "success":
+                    logger.info(
+                        result, extra={"title": "SYSTEM:", "title_color": Fore.YELLOW}
+                    )
+                elif result.status == "error":
+                    logger.warning(
+                        f"Command {command_name} returned an error: "
+                        f"{result.error or result.reason}"
+                    )
+
+
+def check_exit(command_list):
+    if len(command_list) == 0:
+        command_name, command_args, assistant_reply_dict = None, None, None
         consecutive_failures = 0
 
         ###############
@@ -582,7 +681,7 @@ async def run_interaction_loop(
         ##################
         handle_stop_signal()
         if cycles_remaining == 1:  # Last cycle
-            user_feedback, user_input, new_cycles_remaining = await get_user_feedback(
+            user_feedback, user_input, new_cycles_remaining = get_user_feedback(
                 legacy_config,
                 ai_profile,
             )
@@ -635,13 +734,13 @@ async def run_interaction_loop(
         if command_name != "human_feedback":
             cycles_remaining -= 1
 
-        if not command_name:
-            continue
+        # if not command_name:
+        #     continue
 
         handle_stop_signal()
 
         if command_name:
-            result = await agent.execute(command_name, command_args, user_input)
+            result = agent.execute(command_name, command_args, user_input)
 
             if result.status == "success":
                 logger.info(
@@ -651,7 +750,7 @@ async def run_interaction_loop(
                 logger.warning(
                     f"Command {command_name} returned an error: "
                     f"{result.error or result.reason}"
-                )
+                )           
 
 
 def update_user(

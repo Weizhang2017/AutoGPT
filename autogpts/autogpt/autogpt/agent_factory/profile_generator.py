@@ -202,6 +202,7 @@ class AgentProfileGenerator(PromptStrategy):
                     f"LLM did not call {self._create_agent_function.name} function; "
                     "agent profile creation failed"
                 )
+            import pdb;pdb.set_trace()
             arguments: object = response_content.tool_calls[0].function.arguments
             ai_profile = AIProfile(
                 ai_name=arguments.get("name"),
