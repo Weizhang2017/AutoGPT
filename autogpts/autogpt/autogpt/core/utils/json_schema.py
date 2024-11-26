@@ -35,7 +35,7 @@ class JSONSchema(BaseModel):
         }
         if self.type == "array":
             if self.items:
-                import pdb;pdb.set_trace()
+                ###import pdb;pdb.set_trace()
                 schema["items"] = self.items.to_dict()
             schema["minItems"] = self.minItems
             schema["maxItems"] = self.maxItems

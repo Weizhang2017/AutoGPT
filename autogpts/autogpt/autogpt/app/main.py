@@ -59,6 +59,9 @@ from .utils import (
     print_python_version_info,
 )
 
+from .simple_socket import start_server, start_client
+from .k8s import create_deployment, create_service
+from time import sleep
 
 @coroutine
 async def run_auto_gpt(
@@ -85,6 +88,8 @@ async def run_auto_gpt(
     constraints: Optional[list[str]] = None,
     best_practices: Optional[list[str]] = None,
     override_directives: bool = False,
+    proxy: bool = False,
+    task: str = None,
 ):
     # Set up configuration
     config = ConfigBuilder.build_config_from_env()
@@ -104,7 +109,7 @@ async def run_auto_gpt(
 
     # TODO: fill in llm values here
     assert_config_has_openai_api_key(config)
-    # import pdb;pdb.set_trace()
+    # ###import pdb;pdb.set_trace()
     apply_overrides_to_config(
         config=config,
         continuous=continuous,
@@ -123,7 +128,7 @@ async def run_auto_gpt(
         allow_downloads=allow_downloads,
         skip_news=skip_news,
     )
-    # import pdb;pdb.set_trace()
+    # ###import pdb;pdb.set_trace()
     llm_provider = _configure_openai_provider(config)
 
     logger = logging.getLogger(__name__)
@@ -177,28 +182,28 @@ async def run_auto_gpt(
     agent_manager = AgentManager(file_storage)
     existing_agents = agent_manager.list_agents()
     load_existing_agent = ""
-    if existing_agents:
-        print(
-            "Existing agents\n---------------\n"
-            + "\n".join(f"{i} - {id}" for i, id in enumerate(existing_agents, 1))
-        )
-        load_existing_agent = clean_input(
-            config,
-            "Enter the number or name of the agent to run,"
-            " or hit enter to create a new one:",
-        )
-        if re.match(r"^\d+$", load_existing_agent.strip()) and 0 < int(
-            load_existing_agent
-        ) <= len(existing_agents):
-            load_existing_agent = existing_agents[int(load_existing_agent) - 1]
+    # if existing_agents:
+    #     print(
+    #         "Existing agents\n---------------\n"
+    #         + "\n".join(f"{i} - {id}" for i, id in enumerate(existing_agents, 1))
+    #     )
+    #     load_existing_agent = clean_input(
+    #         config,
+    #         "Enter the number or name of the agent to run,"
+    #         " or hit enter to create a new one:",
+    #     )
+    #     if re.match(r"^\d+$", load_existing_agent.strip()) and 0 < int(
+    #         load_existing_agent
+    #     ) <= len(existing_agents):
+    #         load_existing_agent = existing_agents[int(load_existing_agent) - 1]
 
-        if load_existing_agent not in existing_agents:
-            logger.info(
-                f"Unknown agent '{load_existing_agent}', "
-                f"creating a new one instead.",
-                extra={"color": Fore.YELLOW},
-            )
-            load_existing_agent = ""
+    #     if load_existing_agent not in existing_agents:
+    #         logger.info(
+    #             f"Unknown agent '{load_existing_agent}', "
+    #             f"creating a new one instead.",
+    #             extra={"color": Fore.YELLOW},
+    #         )
+    #         load_existing_agent = ""
 
     # Either load existing or set up new agent state
     agent = None
@@ -273,7 +278,9 @@ async def run_auto_gpt(
     # Set up a new Agent #
     ######################
     if not agent:
-        task = "" #or Default_options.default_task
+        if not task:
+            task = "" #or Default_options.default_task
+
         while task.strip() == "":
             task = clean_input(
                 config,
@@ -283,80 +290,113 @@ async def run_auto_gpt(
 
         base_ai_directives = AIDirectives.from_file(config.prompt_settings_file)
 
-        ai_profile, task_oriented_ai_directives = await generate_agent_profile_for_task(
-            task,
-            app_config=config,
-            llm_provider=llm_provider,
-        )
-        ai_directives = base_ai_directives + task_oriented_ai_directives
-        apply_overrides_to_ai_settings(
-            ai_profile=ai_profile,
-            directives=ai_directives,
-            override_name=override_ai_name,
-            override_role=override_ai_role,
-            resources=resources,
-            constraints=constraints,
-            best_practices=best_practices,
-            replace_directives=override_directives,
-        )
+        if proxy:
+            #create pod
+            create_deployment(task)
+            node_port = create_service()
+            sleep(10)
+            node_port = 30001
+            while True:
+                data = start_client('localhost', node_port, 'success')
+                if type(data) == dict and data.get('command_name'):
+                    update_user(
+                        data['ai_profile'],
+                        data['command_name'],
+                        data['command_args'],
+                        data['assistant_reply_dict'],
+                        speak_mode=data['speak_mode'],
+                    )
+                    logger.info('User input: yes or no:')
+                    _user_input = input()
+                    while True:
+                        _data = start_client('localhost', node_port, _user_input.strip())
+                        if _data != 'get_user_feedback':
+                            logger.info(f"get_user_feedback not received, retry in 2s")
+                            sleep(2)
+                        else:
+                            break
+                    if data['command_name'] == 'finish':
+                        logger.info('task completed')
+                        exit()
+                else:
+                    logger.info(f"connection not ready, retry in 2s")
+                    sleep(2)
+                    ###import pdb;pdb.set_trace()
+        else:
+            ai_profile, task_oriented_ai_directives = await generate_agent_profile_for_task(
+                task,
+                app_config=config,
+                llm_provider=llm_provider,
+            )
+            ai_directives = base_ai_directives + task_oriented_ai_directives
+            apply_overrides_to_ai_settings(
+                ai_profile=ai_profile,
+                directives=ai_directives,
+                override_name=override_ai_name,
+                override_role=override_ai_role,
+                resources=resources,
+                constraints=constraints,
+                best_practices=best_practices,
+                replace_directives=override_directives,
+            )
 
-        # If any of these are specified as arguments,
-        #  assume the user doesn't want to revise them
-        if not any(
-            [
-                override_ai_name,
-                override_ai_role,
-                resources,
-                constraints,
-                best_practices,
-            ]
-        ):
-            ai_profile, ai_directives = await interactively_revise_ai_settings(
+            # If any of these are specified as arguments,
+            #  assume the user doesn't want to revise them
+            if not any(
+                [
+                    override_ai_name,
+                    override_ai_role,
+                    resources,
+                    constraints,
+                    best_practices,
+                ]
+            ):
+                ai_profile, ai_directives = await interactively_revise_ai_settings(
+                    ai_profile=ai_profile,
+                    directives=ai_directives,
+                    app_config=config,
+                )
+            else:
+                logger.info("AI config overrides specified through CLI; skipping revision")
+            ###import pdb;pdb.set_trace()
+            agent = create_agent(
+                agent_id=agent_manager.generate_id(ai_profile.ai_name),
+                task=task,
                 ai_profile=ai_profile,
                 directives=ai_directives,
                 app_config=config,
+                file_storage=file_storage,
+                llm_provider=llm_provider,
             )
-        else:
-            logger.info("AI config overrides specified through CLI; skipping revision")
-        import pdb;pdb.set_trace()
-        agent = create_agent(
-            agent_id=agent_manager.generate_id(ai_profile.ai_name),
-            task=task,
-            ai_profile=ai_profile,
-            directives=ai_directives,
-            app_config=config,
-            file_storage=file_storage,
-            llm_provider=llm_provider,
-        )
 
-        if not agent.config.allow_fs_access:
-            logger.info(
-                f"{Fore.YELLOW}"
-                "NOTE: All files/directories created by this agent can be found "
-                f"inside its workspace at:{Fore.RESET} {agent.workspace.root}",
-                extra={"preserve_color": True},
-            )
-        import pdb;pdb.set_trace()
-    #################
-    # Run the Agent #
-    #################
-    try:
-        await run_interaction_loop(agent)
-    except AgentTerminated:
-        agent_id = agent.state.agent_id
-        logger.info(f"Saving state of {agent_id}...")
+            if not agent.config.allow_fs_access:
+                logger.info(
+                    f"{Fore.YELLOW}"
+                    "NOTE: All files/directories created by this agent can be found "
+                    f"inside its workspace at:{Fore.RESET} {agent.workspace.root}",
+                    extra={"preserve_color": True},
+                )
+            ###import pdb;pdb.set_trace()
+        #################
+        # Run the Agent #
+        #################
+        try:
+            await run_interaction_loop(agent)
+        except AgentTerminated:
+            agent_id = agent.state.agent_id
+            logger.info(f"Saving state of {agent_id}...")
 
-        # Allow user to Save As other ID
-        if not agent_id:
-            save_as_id = clean_input(
-                config,
-                f"Press enter to save as '{agent_id}',"
-                " or enter a different ID to save to:",
-            )
-        else:
-            save_as_id = agent_id
-        # TODO: allow many-to-one relations of agents and workspaces
-        await agent.save_state(save_as_id if not save_as_id.isspace() else None)
+            # Allow user to Save As other ID
+            if not agent_id:
+                save_as_id = clean_input(
+                    config,
+                    f"Press enter to save as '{agent_id}',"
+                    " or enter a different ID to save to:",
+                )
+            else:
+                save_as_id = agent_id
+            # TODO: allow many-to-one relations of agents and workspaces
+            await agent.save_state(save_as_id if not save_as_id.isspace() else None)
 
 
 @coroutine
@@ -549,7 +589,7 @@ async def run_interaction_loop(
             #     assistant_reply_dict,
             # ) = await agent.propose_action()
             command_list = await agent.propose_action()
-            import pdb;pdb.set_trace()
+            ###import pdb;pdb.set_trace()
         except InvalidAgentResponseError as e:
             logger.warning(f"The agent's thoughts could not be parsed: {e}")
             consecutive_failures += 1
@@ -581,7 +621,28 @@ async def run_interaction_loop(
                 assistant_reply_dict,
                 speak_mode=legacy_config.tts_config.speak_mode,
             )
-            import pdb;pdb.set_trace()
+
+            data = {
+                'ai_profile': ai_profile,
+                'command_name': command_name,
+                'command_args': command_args,
+                'assistant_reply_dict': assistant_reply_dict,
+                'speak_mode': legacy_config.tts_config.speak_mode
+            }
+            logger.info('starting socket server')
+            while True:
+                try:
+                    response = start_server('0.0.0.0', 80, data)
+                    if response == 'success':
+                        break
+                    else:
+                        logger.info('success not received, retry in 1s')
+                        sleep(1)
+                except OSError as e:
+                    logger.info(f'{str(e)}, retry in 1s')
+                    sleep(1)
+
+            ###import pdb;pdb.set_trace()
             ##################
             # Get user input #
             ##################
@@ -675,7 +736,7 @@ def check_exit(command_list):
             assistant_reply_dict,
             speak_mode=legacy_config.tts_config.speak_mode,
         )
-        import pdb;pdb.set_trace()
+        ###import pdb;pdb.set_trace()
         ##################
         # Get user input #
         ##################
@@ -823,6 +884,21 @@ async def get_user_feedback(
     user_input = "" #or Default_options.default
     new_cycles_remaining = None
 
+    while not user_input:
+        try:
+            user_input = start_server('0.0.0.0', 80, 'get_user_feedback')
+            user_input = user_input.strip()
+            logger.info(f"user_input: {user_input}")
+
+            # if user_input not in ['y', 'n', 'yes', 'no']:
+            #     logger.info(f"user_input {user_input} not received, retry in 1s")
+            # else:
+            #     break
+        except OSError as e:
+            logger.info(f'{str(e)}, retry in 1s')
+            sleep(1)
+
+
     while user_feedback is None:
         # Get input from user
         if user_input:
@@ -834,7 +910,7 @@ async def get_user_feedback(
                 console_input = clean_input(
                     config, Fore.MAGENTA + "Input:" + Style.RESET_ALL
                 )
-
+        # ###import pdb;pdb.set_trace()
         # Parse user input
         if console_input.lower().strip() == config.authorise_key:
             user_feedback = UserFeedback.AUTHORIZE

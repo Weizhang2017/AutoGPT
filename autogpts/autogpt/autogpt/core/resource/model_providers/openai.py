@@ -460,12 +460,12 @@ class OpenAIProvider(
             parsed_result: _T = None  # type: ignore
             if not parse_errors:
                 try:
-                    import pdb;pdb.set_trace()
+                    ###import pdb;pdb.set_trace()
                     if assistant_msg.content and 'command_list' in assistant_msg.content:
                         chat_model_response_list = []
                         for replaced_assistant_msg in self.replace_command_list(assistant_msg.content):
                             try:
-                                import pdb;pdb.set_trace()
+                                ###import pdb;pdb.set_trace()
                                 assistant_msg.content = replaced_assistant_msg
                                 parsed_result = completion_parser(assistant_msg)
                             except Exception as e:
@@ -522,7 +522,7 @@ class OpenAIProvider(
 
 
                     else:
-                        import pdb;pdb.set_trace()
+                        ###import pdb;pdb.set_trace()
                         parsed_result = completion_parser(assistant_msg)
                 except Exception as e:
                     parse_errors.append(e)
@@ -739,7 +739,7 @@ class OpenAIProvider(
                     f.close()
                     return obj
             file = f'gpt_resp_{len(messages[0].get("content"))}.obj'
-            import pdb;pdb.set_trace()
+            ###import pdb;pdb.set_trace()
             if False: #_check_pickle(file):
                 response = _pickle(file)
             else:

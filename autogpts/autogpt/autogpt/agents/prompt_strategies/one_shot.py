@@ -416,7 +416,7 @@ class OneShotAgentPromptStrategy(PromptStrategy):
             "Validating object extracted from LLM response:\n"
             f"{json.dumps(assistant_reply_dict, indent=4)}"
         )
-        # import pdb;pdb.set_trace()
+        # ###import pdb;pdb.set_trace()
 
         ## bug
         # _, errors = self.response_schema.validate_object(assistant_reply_dict)
@@ -477,7 +477,7 @@ def extract_command(
 
         if "command" not in assistant_reply_json:
             raise InvalidAgentResponseError("Missing 'command' object in JSON")
-        import pdb;pdb.set_trace()
+        ###import pdb;pdb.set_trace()
         command = assistant_reply_json["command"]
         if not isinstance(command, dict):
             raise InvalidAgentResponseError("'command' object is not a dictionary")

@@ -146,7 +146,7 @@ class EpisodicActionHistory(BaseModel):
         return len(self.episodes) > 0
 
     def register_action(self, action: Action) -> None:
-        import pdb;pdb.set_trace()
+        ###import pdb;pdb.set_trace()
         if not self.current_episode:
             self.episodes.append(Episode(action=action, result=None))
             assert self.current_episode
@@ -172,7 +172,7 @@ class EpisodicActionHistory(BaseModel):
     ) -> bool:
         """Check if the last command matches the given name and arguments."""
         if len(self.episodes) > 0:
-            import pdb;pdb.set_trace()
+            ###import pdb;pdb.set_trace()
             last_command = self.episodes[-1].action
             return last_command.name == command_name and last_command.args == arguments
         return False

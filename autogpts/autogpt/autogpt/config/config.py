@@ -325,7 +325,7 @@ def assert_config_has_openai_api_key(config: Config) -> None:
             exit(1)
     # If key is set, but it looks invalid
     elif not re.search(key_pattern, openai_api_key):
-        import pdb;pdb.set_trace()
+        ###import pdb;pdb.set_trace()
         logger.error(
             "Invalid OpenAI API key! "
             "Please set your OpenAI API key in .env or as an environment variable."
