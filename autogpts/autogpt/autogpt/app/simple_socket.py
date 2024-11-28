@@ -5,9 +5,6 @@ class SimpleSocket:
     def __init__(self, host='localhost', port=8080, is_server=False):
         """
         Initialize the socket.
-        :param host: Hostname or IP address
-        :param port: Port number
-        :param is_server: True for server, False for client
         """
         self.host = host
         self.port = port
@@ -22,8 +19,6 @@ class SimpleSocket:
     def send(self, message, connection=None):
         """
         Send a message through the socket.
-        :param message: Message to send (string)
-        :param connection: Connection object (for server use)
         """
         if type(message) == str:
             message = message.encode()
@@ -35,9 +30,6 @@ class SimpleSocket:
     def receive(self, connection=None, buffer_size=4096):
         """
         Receive a message through the socket.
-        :param connection: Connection object (for server use)
-        :param buffer_size: Size of the receive buffer
-        :return: Received message (string)
         """
         if self.is_server and connection:
             data = connection.recv(buffer_size)
@@ -52,7 +44,6 @@ class SimpleSocket:
     def accept_connection(self):
         """
         Accept a new client connection (server only).
-        :return: Client connection and address
         """
         if not self.is_server:
             raise Exception("accept_connection can only be used on a server socket.")
