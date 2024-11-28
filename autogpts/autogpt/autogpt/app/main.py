@@ -306,7 +306,7 @@ async def run_auto_gpt(
                         data['assistant_reply_dict'],
                         speak_mode=data['speak_mode'],
                     )
-                    logger.info('User input: yes or no:')
+                    logger.info('User input yes(y) or no(n):')
                     _user_input = input()
                     while True:
                         _data = start_client('localhost', node_port, _user_input.strip())
@@ -319,7 +319,7 @@ async def run_auto_gpt(
                         logger.info('task completed')
                         exit()
                 else:
-                    logger.info(f"connection not ready, retry in 2s")
+                    logger.info(f"Waiting for agent response, retry in 2s")
                     sleep(2)
                     ###import pdb;pdb.set_trace()
         else:
